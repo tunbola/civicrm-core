@@ -4,6 +4,7 @@ namespace Civi\Test;
 
 use Civi\API\Exception\NotImplementedException;
 
+require_once 'api/v3/utils.php';
 /**
  * Class Api3TestTrait
  * @package Civi\Test
@@ -322,8 +323,7 @@ trait Api3TestTrait {
       $v4Params['language'] = $language;
     }
     $toRemove = ['option.', 'return', 'api.', 'format.'];
-    $chains = [];
-    $custom = [];
+    $chains = $joins = $custom = [];
     foreach ($v3Params as $key => $val) {
       foreach ($toRemove as $remove) {
         if (strpos($key, $remove) === 0) {
@@ -399,6 +399,14 @@ trait Api3TestTrait {
           unset($options['return'][$name]);
         }
       }
+
+      if ($name === 'option_group_id' && isset($v3Params[$name]) && !is_numeric($v3Params[$name])) {
+        // This is a per field hack (bad) but we can't solve everything at once
+        // & a cleverer way turned out to be too much for this round.
+        // Being in the test class it's tested....
+        $v3Params['option_group.name'] = $v3Params['option_group_id'];
+        unset($v3Params['option_group_id']);
+      }
     }
 
     switch ($v3Action) {
@@ -412,6 +420,17 @@ trait Api3TestTrait {
       case 'get':
         if ($options['return'] && $v3Action !== 'getcount') {
           $v4Params['select'] = array_keys($options['return']);
+          // Ensure id field is returned as v3 always expects it
+          if ($v4Entity != 'Setting' && !in_array('id', $v4Params['select'])) {
+            $v4Params['select'][] = 'id';
+          }
+          // Convert join syntax
+          foreach ($v4Params['select'] as &$select) {
+            if (strstr($select, '_id.')) {
+              $joins[$select] = explode('.', str_replace('_id.', '.', $select));
+              $select = str_replace('_id.', '.', $select);
+            }
+          }
         }
         if ($options['limit'] && $v4Entity != 'Setting') {
           $v4Params['limit'] = $options['limit'];
@@ -449,7 +468,7 @@ trait Api3TestTrait {
         break;
 
       case 'delete':
-        if (!empty($v3Params['id'])) {
+        if (isset($v3Params['id'])) {
           $v4Params['where'][] = ['id', '=', $v3Params['id']];
         }
         break;
@@ -521,7 +540,7 @@ trait Api3TestTrait {
       ];
     }
 
-    if (($v3Action == 'getsingle' || $v3Action == 'getvalue') && count($result) != 1) {
+    if (($v3Action == 'getsingle' || $v3Action == 'getvalue' || $v3Action == 'delete') && count($result) != 1) {
       return $onlySuccess ? 0 : [
         'is_error' => 1,
         'error_message' => "Expected one $v4Entity but found " . count($result),
@@ -576,6 +595,10 @@ trait Api3TestTrait {
       // Run chains
       foreach ($chains as $key => $params) {
         $result[$index][$key] = $this->runApi4LegacyChain($key, $params, $v4Entity, $row, $sequential);
+      }
+      // Convert join format
+      foreach ($joins as $api3Key => $api4Path) {
+        $result[$index][$api3Key] = \CRM_Utils_Array::pathGet($result[$index], $api4Path);
       }
       // Resolve custom field names
       foreach ($custom as $group => $fields) {

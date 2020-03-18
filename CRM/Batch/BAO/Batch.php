@@ -1,34 +1,18 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 5                                                  |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2020                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
  */
 
 /**
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2020
+ * @copyright CiviCRM LLC https://civicrm.org/licensing
  */
 
 /**
@@ -59,7 +43,7 @@ class CRM_Batch_BAO_Batch extends CRM_Batch_DAO_Batch {
    */
   public static function create(&$params) {
     $op = 'edit';
-    $batchId = CRM_Utils_Array::value('id', $params);
+    $batchId = $params['id'] ?? NULL;
     if (!$batchId) {
       $op = 'create';
       $params['name'] = CRM_Utils_String::titleToVar($params['title']);
@@ -166,7 +150,7 @@ class CRM_Batch_BAO_Batch extends CRM_Batch_DAO_Batch {
     // format the params
     $params['offset'] = ($params['page'] - 1) * $params['rp'];
     $params['rowCount'] = $params['rp'];
-    $params['sort'] = CRM_Utils_Array::value('sortBy', $params);
+    $params['sort'] = $params['sortBy'] ?? NULL;
 
     // get batches
     $batches = self::getBatchList($params);
@@ -201,8 +185,8 @@ class CRM_Batch_BAO_Batch extends CRM_Batch_DAO_Batch {
       $batch['batch_name'] = $value['title'];
       $batch['total'] = '';
       $batch['payment_instrument'] = $value['payment_instrument'];
-      $batch['item_count'] = CRM_Utils_Array::value('item_count', $value);
-      $batch['type'] = CRM_Utils_Array::value('batch_type', $value);
+      $batch['item_count'] = $value['item_count'] ?? NULL;
+      $batch['type'] = $value['batch_type'] ?? NULL;
       if (!empty($value['total'])) {
         // CRM-21205
         $batch['total'] = CRM_Utils_Money::format($value['total'], $value['currency']);

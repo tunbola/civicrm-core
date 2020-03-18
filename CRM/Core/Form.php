@@ -1,27 +1,11 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 5                                                  |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2020                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
  */
 
@@ -31,7 +15,7 @@
  * machine. Each form can also operate in various modes
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2020
+ * @copyright CiviCRM LLC https://civicrm.org/licensing
  */
 
 require_once 'HTML/QuickForm/Page.php';
@@ -503,7 +487,7 @@ class CRM_Core_Form extends HTML_QuickForm_Page {
       $this->ajaxResponse['buttonName'] = str_replace('_qf_' . $this->getAttribute('id') . '_', '', $this->controller->getButtonName());
       $this->ajaxResponse['action'] = $this->_action;
       if (isset($this->_id) || isset($this->id)) {
-        $this->ajaxResponse['id'] = isset($this->id) ? $this->id : $this->_id;
+        $this->ajaxResponse['id'] = $this->id ?? $this->_id;
       }
       CRM_Core_Page_AJAX::returnJsonResponse($this->ajaxResponse);
     }
@@ -792,10 +776,7 @@ class CRM_Core_Form extends HTML_QuickForm_Page {
    * @throws \CRM_Core_Exception
    */
   protected function assignPaymentProcessor($isPayLaterEnabled) {
-    $this->_paymentProcessors = CRM_Financial_BAO_PaymentProcessor::getPaymentProcessors(
-      [ucfirst($this->_mode) . 'Mode'],
-      $this->_paymentProcessorIDs
-    );
+    $this->_paymentProcessors = CRM_Financial_BAO_PaymentProcessor::getPaymentProcessors([ucfirst($this->_mode) . 'Mode'], $this->_paymentProcessorIDs);
     if ($isPayLaterEnabled) {
       $this->_paymentProcessors[0] = CRM_Financial_BAO_PaymentProcessor::getPayment(0);
     }
@@ -897,8 +878,8 @@ class CRM_Core_Form extends HTML_QuickForm_Page {
     $this->_paymentProcessorID = NULL;
     if ($this->_paymentProcessors) {
       if (!empty($this->_submitValues)) {
-        $this->_paymentProcessorID = CRM_Utils_Array::value('payment_processor_id', $this->_submitValues);
-        $this->_paymentProcessor = CRM_Utils_Array::value($this->_paymentProcessorID, $this->_paymentProcessors);
+        $this->_paymentProcessorID = $this->_submitValues['payment_processor_id'] ?? NULL;
+        $this->_paymentProcessor = $this->_paymentProcessors[$this->_paymentProcessorID] ?? NULL;
         $this->set('type', $this->_paymentProcessorID);
         $this->set('mode', $this->_mode);
         $this->set('paymentProcessor', $this->_paymentProcessor);
@@ -930,7 +911,7 @@ class CRM_Core_Form extends HTML_QuickForm_Page {
     // minimums with the payment processor minimums. This would lead to fields like 'postal_code'
     // only being on the form if either the admin has configured it as wanted or the processor
     // requires it.
-    $this->assign('billing_profile_id', (CRM_Utils_Array::value('is_billing_required', $this->_values) ? 'billing' : ''));
+    $this->assign('billing_profile_id', (!empty($this->_values['is_billing_required']) ? 'billing' : ''));
   }
 
   /**
@@ -948,7 +929,7 @@ class CRM_Core_Form extends HTML_QuickForm_Page {
   protected function handlePreApproval(&$params) {
     try {
       $payment = Civi\Payment\System::singleton()->getByProcessor($this->_paymentProcessor);
-      $params['component'] = 'contribute';
+      $params['component'] = $params['component'] ?? 'contribute';
       $result = $payment->doPreApproval($params);
       if (empty($result)) {
         // This could happen, for example, when paypal looks at the button value & decides it is not paypal express.
@@ -1166,17 +1147,29 @@ class CRM_Core_Form extends HTML_QuickForm_Page {
    * @param array $attributes
    * @param null $separator
    * @param bool $required
+   * @param array $optionAttributes - Option specific attributes
    *
    * @return HTML_QuickForm_group
    */
-  public function &addRadio($name, $title, $values, $attributes = [], $separator = NULL, $required = FALSE) {
+  public function &addRadio($name, $title, $values, $attributes = [], $separator = NULL, $required = FALSE, $optionAttributes = []) {
     $options = [];
     $attributes = $attributes ? $attributes : [];
     $allowClear = !empty($attributes['allowClear']);
     unset($attributes['allowClear']);
     $attributes['id_suffix'] = $name;
     foreach ($values as $key => $var) {
-      $options[] = $this->createElement('radio', NULL, NULL, $var, $key, $attributes);
+      $optAttributes = $attributes;
+      if (!empty($optionAttributes[$key])) {
+        foreach ($optionAttributes[$key] as $optAttr => $optVal) {
+          if (!empty($optAttributes[$optAttr])) {
+            $optAttributes[$optAttr] .= ' ' . $optVal;
+          }
+          else {
+            $optAttributes[$optAttr] = $optVal;
+          }
+        }
+      }
+      $options[] = $this->createElement('radio', NULL, NULL, $var, $key, $optAttributes);
     }
     $group = $this->addGroup($options, $name, $title, $separator);
 
@@ -1449,7 +1442,7 @@ class CRM_Core_Form extends HTML_QuickForm_Page {
     // Handle custom field
     if (strpos($name, 'custom_') === 0 && is_numeric($name[7])) {
       list(, $id) = explode('_', $name);
-      $label = isset($props['label']) ? $props['label'] : CRM_Core_DAO::getFieldValue('CRM_Core_DAO_CustomField', 'label', $id);
+      $label = $props['label'] ?? CRM_Core_DAO::getFieldValue('CRM_Core_DAO_CustomField', 'label', $id);
       $gid = CRM_Core_DAO::getFieldValue('CRM_Core_DAO_CustomField', 'option_group_id', $id);
       if (CRM_Utils_Array::value('context', $props) != 'search') {
         $props['data-option-edit-path'] = array_key_exists('option_url', $props) ? $props['option_url'] : 'civicrm/admin/options/' . CRM_Core_DAO::getFieldValue('CRM_Core_DAO_OptionGroup', $gid);
@@ -1467,7 +1460,7 @@ class CRM_Core_Form extends HTML_QuickForm_Page {
           break;
         }
       }
-      $label = isset($props['label']) ? $props['label'] : $fieldSpec['title'];
+      $label = $props['label'] ?? $fieldSpec['title'];
       if (CRM_Utils_Array::value('context', $props) != 'search') {
         $props['data-option-edit-path'] = array_key_exists('option_url', $props) ? $props['option_url'] : CRM_Core_PseudoConstant::getOptionEditUrl($fieldSpec);
       }
@@ -1532,10 +1525,10 @@ class CRM_Core_Form extends HTML_QuickForm_Page {
     // Core field - get metadata.
     $fieldSpec = civicrm_api3($props['entity'], 'getfield', $props);
     $fieldSpec = $fieldSpec['values'];
-    $fieldSpecLabel = isset($fieldSpec['html']['label']) ? $fieldSpec['html']['label'] : CRM_Utils_Array::value('title', $fieldSpec);
+    $fieldSpecLabel = $fieldSpec['html']['label'] ?? CRM_Utils_Array::value('title', $fieldSpec);
     $label = CRM_Utils_Array::value('label', $props, $fieldSpecLabel);
 
-    $widget = isset($props['type']) ? $props['type'] : $fieldSpec['html']['type'];
+    $widget = $props['type'] ?? $fieldSpec['html']['type'];
     if ($widget == 'TextArea' && $context == 'search') {
       $widget = 'Text';
     }
@@ -1554,7 +1547,7 @@ class CRM_Core_Form extends HTML_QuickForm_Page {
         $options = $props['options'];
       }
       else {
-        $options = isset($fieldSpec['options']) ? $fieldSpec['options'] : NULL;
+        $options = $fieldSpec['options'] ?? NULL;
       }
       if ($context == 'search') {
         $widget = $widget == 'Select2' ? $widget : 'Select';
@@ -1586,7 +1579,7 @@ class CRM_Core_Form extends HTML_QuickForm_Page {
       case 'Number':
       case 'Email':
         //TODO: Autodetect ranges
-        $props['size'] = isset($props['size']) ? $props['size'] : 60;
+        $props['size'] = $props['size'] ?? 60;
         return $this->add(strtolower($widget), $name, $label, $props, $required);
 
       case 'hidden':
@@ -1594,8 +1587,8 @@ class CRM_Core_Form extends HTML_QuickForm_Page {
 
       case 'TextArea':
         //Set default columns and rows for textarea.
-        $props['rows'] = isset($props['rows']) ? $props['rows'] : 4;
-        $props['cols'] = isset($props['cols']) ? $props['cols'] : 60;
+        $props['rows'] = $props['rows'] ?? 4;
+        $props['cols'] = $props['cols'] ?? 60;
         if (empty($props['maxlength']) && isset($fieldSpec['length'])) {
           $props['maxlength'] = $fieldSpec['length'];
         }
@@ -1617,7 +1610,7 @@ class CRM_Core_Form extends HTML_QuickForm_Page {
         }
 
       case 'Radio':
-        $separator = isset($props['separator']) ? $props['separator'] : NULL;
+        $separator = $props['separator'] ?? NULL;
         unset($props['separator']);
         if (!isset($props['allowClear'])) {
           $props['allowClear'] = !$required;
@@ -1652,13 +1645,13 @@ class CRM_Core_Form extends HTML_QuickForm_Page {
           $this->addYesNo($name, $label, TRUE, FALSE, $props);
           return;
         }
-        $text = isset($props['text']) ? $props['text'] : NULL;
+        $text = $props['text'] ?? NULL;
         unset($props['text']);
         return $this->addElement('checkbox', $name, $label, $text, $props);
 
       //add support for 'Advcheckbox' field
       case 'advcheckbox':
-        $text = isset($props['text']) ? $props['text'] : NULL;
+        $text = $props['text'] ?? NULL;
         unset($props['text']);
         return $this->addElement('advcheckbox', $name, $label, $text, $props);
 
@@ -1678,7 +1671,7 @@ class CRM_Core_Form extends HTML_QuickForm_Page {
         return $this->addEntityRef($name, $label, $props, $required);
 
       case 'Password':
-        $props['size'] = isset($props['size']) ? $props['size'] : 60;
+        $props['size'] = $props['size'] ?? 60;
         return $this->add('password', $name, $label, $props, $required);
 
       // Check datatypes of fields
@@ -1778,7 +1771,7 @@ class CRM_Core_Form extends HTML_QuickForm_Page {
    * @return null
    */
   public function getVar($name) {
-    return isset($this->$name) ? $this->$name : NULL;
+    return $this->$name ?? NULL;
   }
 
   /**
@@ -2529,7 +2522,7 @@ class CRM_Core_Form extends HTML_QuickForm_Page {
    * @return string
    */
   public function getCurrency($submittedValues = []) {
-    $currency = CRM_Utils_Array::value('currency', $this->_values);
+    $currency = $this->_values['currency'] ?? NULL;
     // For event forms, currency is in a different spot
     if (empty($currency)) {
       $currency = CRM_Utils_Array::value('currency', CRM_Utils_Array::value('event', $this->_values));

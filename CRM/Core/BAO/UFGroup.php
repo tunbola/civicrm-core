@@ -1,34 +1,18 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 5                                                  |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2020                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
  */
 
 /**
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2020
+ * @copyright CiviCRM LLC https://civicrm.org/licensing
  */
 
 /**
@@ -85,7 +69,7 @@ class CRM_Core_BAO_UFGroup extends CRM_Core_DAO_UFGroup {
         $cType = $type;
       }
       elseif (array_key_exists($type, $validSubTypes)) {
-        $cType = CRM_Utils_Array::value('parent', $validSubTypes[$type]);
+        $cType = $validSubTypes[$type]['parent'] ?? NULL;
       }
       if ($cType) {
         break;
@@ -480,7 +464,7 @@ class CRM_Core_BAO_UFGroup extends CRM_Core_DAO_UFGroup {
     if (isset($field->phone_type_id)) {
       $name .= "-{$field->phone_type_id}";
     }
-    $fieldMetaData = CRM_Utils_Array::value($name, $importableFields, (isset($importableFields[$field->field_name]) ? $importableFields[$field->field_name] : []));
+    $fieldMetaData = CRM_Utils_Array::value($name, $importableFields, ($importableFields[$field->field_name] ?? []));
 
     // No lie: this is bizarre; why do we need to mix so many UFGroup properties into UFFields?
     // I guess to make field self sufficient with all the required data and avoid additional calls
@@ -501,12 +485,12 @@ class CRM_Core_BAO_UFGroup extends CRM_Core_DAO_UFGroup {
       'visibility' => $field->visibility,
       'in_selector' => $field->in_selector,
       'rule' => CRM_Utils_Array::value('rule', CRM_Utils_Array::value($field->field_name, $importableFields)),
-      'location_type_id' => isset($field->location_type_id) ? $field->location_type_id : NULL,
-      'website_type_id' => isset($field->website_type_id) ? $field->website_type_id : NULL,
-      'phone_type_id' => isset($field->phone_type_id) ? $field->phone_type_id : NULL,
+      'location_type_id' => $field->location_type_id ?? NULL,
+      'website_type_id' => $field->website_type_id ?? NULL,
+      'phone_type_id' => $field->phone_type_id ?? NULL,
       'group_id' => $group->id,
-      'add_to_group_id' => isset($group->add_to_group_id) ? $group->add_to_group_id : NULL,
-      'add_captcha' => isset($group->add_captcha) ? $group->add_captcha : NULL,
+      'add_to_group_id' => $group->add_to_group_id ?? NULL,
+      'add_captcha' => $group->add_captcha ?? NULL,
       'field_type' => $field->field_type,
       'field_id' => $field->id,
       'pseudoconstant' => CRM_Utils_Array::value(
@@ -520,7 +504,7 @@ class CRM_Core_BAO_UFGroup extends CRM_Core_DAO_UFGroup {
       ),
       'skipDisplay' => 0,
       'data_type' => CRM_Utils_Type::getDataTypeFromFieldMetadata($fieldMetaData),
-      'bao' => CRM_Utils_Array::value('bao', $fieldMetaData),
+      'bao' => $fieldMetaData['bao'] ?? NULL,
     ];
 
     $formattedField = CRM_Utils_Date::addDateMetadataToField($fieldMetaData, $formattedField);
@@ -948,7 +932,7 @@ class CRM_Core_BAO_UFGroup extends CRM_Core_DAO_UFGroup {
         if (!empty($_POST)) {
           // get the new email
           $config = CRM_Core_Config::singleton();
-          $email = CRM_Utils_Array::value('mail', $_POST);
+          $email = $_POST['mail'] ?? NULL;
 
           if (CRM_Utils_Rule::email($email) && ($email != $userEmail[1])) {
             CRM_Core_BAO_UFMatch::updateContactEmail($userID, $email);
@@ -1005,11 +989,10 @@ class CRM_Core_BAO_UFGroup extends CRM_Core_DAO_UFGroup {
       }
     }
     $query->convertToPseudoNames($details);
-    $config = CRM_Core_Config::singleton();
 
-    $locationTypes = CRM_Core_PseudoConstant::get('CRM_Core_DAO_Address', 'location_type_id');
-    $imProviders = CRM_Core_PseudoConstant::get('CRM_Core_DAO_IM', 'provider_id');
-    $websiteTypes = CRM_Core_PseudoConstant::get('CRM_Core_DAO_Website', 'website_type_id');
+    $locationTypes = CRM_Core_BAO_Address::buildOptions('location_type_id', 'validate');
+    $imProviders = CRM_Core_DAO_IM::buildOptions('provider_id');
+    $websiteTypes = CRM_Core_DAO_Website::buildOptions('website_type_id');
 
     $multipleFields = ['url'];
 
@@ -1132,7 +1115,7 @@ class CRM_Core_BAO_UFGroup extends CRM_Core_DAO_UFGroup {
               // field_type is only set when we are retrieving profile values
               // when sending email, we call the same function to get custom field
               // values etc, i.e. emulating a profile
-              $fieldType = CRM_Utils_Array::value('field_type', $field);
+              $fieldType = $field['field_type'] ?? NULL;
 
               if ($htmlType == 'File') {
                 $entityId = $cid;
@@ -1235,7 +1218,7 @@ class CRM_Core_BAO_UFGroup extends CRM_Core_DAO_UFGroup {
             $locationTypeName = 1;
           }
           else {
-            $locationTypeName = CRM_Utils_Array::value($id, $locationTypes);
+            $locationTypeName = $locationTypes[$id] ?? NULL;
           }
 
           if (!$locationTypeName) {
@@ -1465,8 +1448,8 @@ class CRM_Core_BAO_UFGroup extends CRM_Core_DAO_UFGroup {
       $params[$field] = CRM_Utils_Array::value($field, $params, FALSE);
     }
 
-    $params['limit_listings_group_id'] = CRM_Utils_Array::value('group', $params);
-    $params['add_to_group_id'] = CRM_Utils_Array::value('add_contact_to_group', $params);
+    $params['limit_listings_group_id'] = $params['group'] ?? NULL;
+    $params['add_to_group_id'] = $params['add_contact_to_group'] ?? NULL;
 
     //CRM-15427
     if (!empty($params['group_type']) && is_array($params['group_type'])) {
@@ -1494,13 +1477,13 @@ class CRM_Core_BAO_UFGroup extends CRM_Core_DAO_UFGroup {
   /**
    * Make uf join entries for an uf group.
    *
-   * @param array $params
-   *   (reference) an assoc array of name/value pairs.
+   * @param int $weight
+   * @param array $groupTypes
+   *   An assoc array of name/value pairs.
    * @param int $ufGroupId
    *   Ufgroup id.
    */
-  public static function createUFJoin(&$params, $ufGroupId) {
-    $groupTypes = CRM_Utils_Array::value('uf_group_type', $params);
+  public static function createUFJoin($weight, $groupTypes, $ufGroupId) {
 
     // get ufjoin records for uf group
     $ufGroupRecord = CRM_Core_BAO_UFGroup::getUFJoinRecord($ufGroupId);
@@ -1524,7 +1507,7 @@ class CRM_Core_BAO_UFGroup extends CRM_Core_DAO_UFGroup {
       $joinParams = [];
       $joinParams['uf_group_id'] = $ufGroupId;
       $joinParams['module'] = $key;
-      if ($key == 'User Account') {
+      if ($key === 'User Account') {
         $menuRebuild = TRUE;
       }
       if (array_key_exists($key, $groupTypes) && !in_array($key, $ufGroupRecord)) {
@@ -1538,14 +1521,14 @@ class CRM_Core_BAO_UFGroup extends CRM_Core_DAO_UFGroup {
     }
 
     //update the weight
-    $query = "
+    $query = '
 UPDATE civicrm_uf_join
 SET    weight = %1
 WHERE  uf_group_id = %2
 AND    ( entity_id IS NULL OR entity_id <= 0 )
-";
+';
     $p = [
-      1 => [$params['weight'], 'Integer'],
+      1 => [$weight, 'Integer'],
       2 => [$ufGroupId, 'Integer'],
     ];
     CRM_Core_DAO::executeQuery($query, $p);
@@ -2305,7 +2288,7 @@ AND    ( entity_id IS NULL OR entity_id <= 0 )
     if (!$componentId) {
       //get the contact details
       $contactDetails = CRM_Contact_BAO_Contact::getHierContactDetails($contactId, $fields);
-      $details = CRM_Utils_Array::value($contactId, $contactDetails);
+      $details = $contactDetails[$contactId] ?? NULL;
       $multipleFields = ['website' => 'url'];
 
       //start of code to set the default values
@@ -2414,7 +2397,7 @@ AND    ( entity_id IS NULL OR entity_id <= 0 )
                           }
                         }
                         else {
-                          $phoneDefault = CRM_Utils_Array::value('phone', $value);
+                          $phoneDefault = $value['phone'] ?? NULL;
                           // CRM-9216
                           if (!is_array($phoneDefault)) {
                             $defaults[$fldName] = $phoneDefault;
@@ -2457,7 +2440,7 @@ AND    ( entity_id IS NULL OR entity_id <= 0 )
                 && !empty($details['website'])
                 && !empty($details['website'][$locTypeId])
               ) {
-                $defaults[$fldName] = CRM_Utils_Array::value('url', $details['website'][$locTypeId]);
+                $defaults[$fldName] = $details['website'][$locTypeId]['url'] ?? NULL;
               }
             }
           }

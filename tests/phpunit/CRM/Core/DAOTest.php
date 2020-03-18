@@ -248,7 +248,7 @@ class CRM_Core_DAOTest extends CiviUnitTestCase {
     $contact = CRM_Contact_BAO_Contact::findById($existing_contact->id);
     $this->assertEquals($existing_contact->id, $contact->id);
     $deleted_contact_id = $existing_contact->id;
-    CRM_Contact_BAO_Contact::deleteContact($contact->id, FALSE, TRUE);
+    $this->contactDelete($contact->id);
     $exception_thrown = FALSE;
     try {
       $deleted_contact = CRM_Contact_BAO_Contact::findById($deleted_contact_id);
@@ -296,21 +296,14 @@ class CRM_Core_DAOTest extends CiviUnitTestCase {
     $this->assertEquals(1, CRM_Core_DAO::isDBMyISAM());
     CRM_Core_DAO::executeQuery('DROP TABLE civicrm_my_isam');
 
-    // A temp table should not raise flag (static naming).
-    $tempName = CRM_Core_DAO::createTempTableName('civicrm', FALSE);
-    $this->assertEquals(0, CRM_Core_DAO::isDBMyISAM());
-    CRM_Core_DAO::executeQuery("CREATE TABLE $tempName (`id` int(10) unsigned NOT NULL) ENGINE = MyISAM");
-    // Ignore temp tables
-    $this->assertEquals(0, CRM_Core_DAO::isDBMyISAM());
-    CRM_Core_DAO::executeQuery("DROP TABLE $tempName");
-
+    // A temp table should not raise flag.
+    $tempTableName = CRM_Utils_SQL_TempTable::build()->setCategory('myisam')->getName();
     // A temp table should not raise flag (randomized naming).
-    $tempName = CRM_Core_DAO::createTempTableName('civicrm', TRUE);
     $this->assertEquals(0, CRM_Core_DAO::isDBMyISAM());
-    CRM_Core_DAO::executeQuery("CREATE TABLE $tempName (`id` int(10) unsigned NOT NULL) ENGINE = MyISAM");
+    CRM_Core_DAO::executeQuery("CREATE TABLE $tempTableName (`id` int(10) unsigned NOT NULL) ENGINE = MyISAM");
     // Ignore temp tables
     $this->assertEquals(0, CRM_Core_DAO::isDBMyISAM());
-    CRM_Core_DAO::executeQuery("DROP TABLE $tempName");
+    CRM_Core_DAO::executeQuery("DROP TABLE $tempTableName");
   }
 
   /**

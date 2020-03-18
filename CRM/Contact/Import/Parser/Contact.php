@@ -1,27 +1,11 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 5                                                  |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2020                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
  */
 require_once 'CRM/Utils/DeprecatedUtils.php';
@@ -30,7 +14,7 @@ require_once 'api/v3/utils.php';
 /**
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2020
+ * @copyright CiviCRM LLC https://civicrm.org/licensing
  */
 
 /**
@@ -317,7 +301,7 @@ class CRM_Contact_Import_Parser_Contact extends CRM_Contact_Import_Parser {
         }
       }
 
-      $email = CRM_Utils_Array::value($this->_emailIndex, $values);
+      $email = $values[$this->_emailIndex] ?? NULL;
       if ($email) {
         /* If the email address isn't valid, bail */
 
@@ -355,7 +339,7 @@ class CRM_Contact_Import_Parser_Contact extends CRM_Contact_Import_Parser {
     }
 
     //check for duplicate external Identifier
-    $externalID = CRM_Utils_Array::value($this->_externalIdentifierIndex, $values);
+    $externalID = $values[$this->_externalIdentifierIndex] ?? NULL;
     if ($externalID) {
       /* If it's a dupe,external Identifier  */
 
@@ -1137,7 +1121,7 @@ class CRM_Contact_Import_Parser_Contact extends CRM_Contact_Import_Parser {
     $dateType = CRM_Core_Session::singleton()->get("dateTypes");
 
     if (!empty($params['contact_sub_type'])) {
-      $csType = CRM_Utils_Array::value('contact_sub_type', $params);
+      $csType = $params['contact_sub_type'] ?? NULL;
     }
 
     if (empty($params['contact_type'])) {
@@ -1924,7 +1908,7 @@ class CRM_Contact_Import_Parser_Contact extends CRM_Contact_Import_Parser {
         if (!empty($relatedContactFields[$name]) && !is_array($relatedContactFields[$name])) {
           $relatedContactFields[$name] = [];
         }
-        $fldName = CRM_Utils_Array::value($key, $this->_mapperRelatedContactDetails);
+        $fldName = $this->_mapperRelatedContactDetails[$key] ?? NULL;
         if ($fldName == 'url') {
           $fldName = 'website';
         }

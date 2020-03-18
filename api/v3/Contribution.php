@@ -1,27 +1,11 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 5                                                  |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2020                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
  */
 
@@ -372,7 +356,7 @@ function _civicrm_api3_contribution_get_spec(&$params) {
 
   $params['financial_type_id']['api.aliases'] = ['contribution_type_id'];
   $params['payment_instrument_id']['api.aliases'] = ['contribution_payment_instrument', 'payment_instrument'];
-  $params['contact_id'] = CRM_Utils_Array::value('contribution_contact_id', $params);
+  $params['contact_id'] = $params['contribution_contact_id'] ?? NULL;
   $params['contact_id']['api.aliases'] = ['contribution_contact_id'];
   $params['is_template']['api.default'] = 0;
   unset($params['contribution_contact_id']);
@@ -656,6 +640,8 @@ function civicrm_api3_contribution_repeattransaction($params) {
  * @param CRM_Contribute_BAO_Contribution $firstContribution
  *
  * @return mixed
+ * @throws \CRM_Core_Exception
+ * @throws \CiviCRM_API3_Exception
  */
 function _ipn_process_transaction(&$params, $contribution, $input, $ids, $firstContribution = NULL) {
   $objects = $contribution->_relatedObjects;
@@ -686,11 +672,11 @@ function _ipn_process_transaction(&$params, $contribution, $input, $ids, $firstC
     $input['receipt_from_name'] = CRM_Utils_Array::value('receipt_from_name', $params, $domainFromName);
     $input['receipt_from_email'] = CRM_Utils_Array::value('receipt_from_email', $params, $domainFromEmail);
   }
-  $input['card_type_id'] = CRM_Utils_Array::value('card_type_id', $params);
-  $input['pan_truncation'] = CRM_Utils_Array::value('pan_truncation', $params);
+  $input['card_type_id'] = $params['card_type_id'] ?? NULL;
+  $input['pan_truncation'] = $params['pan_truncation'] ?? NULL;
   $transaction = new CRM_Core_Transaction();
   return CRM_Contribute_BAO_Contribution::completeOrder($input, $ids, $objects, $transaction,
-    !empty($contribution->contribution_recur_id), $contribution, CRM_Utils_Array::value('is_post_payment_create', $params));
+     $contribution, CRM_Utils_Array::value('is_post_payment_create', $params));
 }
 
 /**

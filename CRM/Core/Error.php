@@ -1,27 +1,11 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 5                                                  |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2020                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
  */
 
@@ -30,7 +14,7 @@
  * PEAR_ErrorStack and use that framework
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2020
+ * @copyright CiviCRM LLC https://civicrm.org/licensing
  */
 
 require_once 'PEAR/ErrorStack.php';
@@ -586,7 +570,7 @@ class CRM_Core_Error extends PEAR_ErrorStack {
     if (!empty(\Civi::$statics[__CLASS__]['userFrameworkLogging'])) {
       // should call $config->userSystem->logger($message) here - but I got a situation where userSystem was not an object - not sure why
       if ($config->userSystem->is_drupal and function_exists('watchdog')) {
-        watchdog('civicrm', '%message', ['%message' => $message], isset($priority) ? $priority : WATCHDOG_DEBUG);
+        watchdog('civicrm', '%message', ['%message' => $message], $priority ?? WATCHDOG_DEBUG);
       }
     }
 
@@ -742,7 +726,7 @@ class CRM_Core_Error extends PEAR_ErrorStack {
     $ret = [];
     foreach ($backTrace as $trace) {
       $args = [];
-      $fnName = CRM_Utils_Array::value('function', $trace);
+      $fnName = $trace['function'] ?? NULL;
       $className = isset($trace['class']) ? ($trace['class'] . $trace['type']) : '';
 
       // Do not show args for a few password related functions
@@ -819,16 +803,19 @@ class CRM_Core_Error extends PEAR_ErrorStack {
     if ($e instanceof PEAR_Exception) {
       $ei = $e;
       while (is_callable([$ei, 'getCause'])) {
-        if ($ei->getCause() instanceof PEAR_Error) {
-          $msg .= '<table class="crm-db-error">';
-          $msg .= sprintf('<thead><tr><th>%s</th><th>%s</th></tr></thead>', ts('Error Field'), ts('Error Value'));
-          $msg .= '<tbody>';
-          foreach (['Type', 'Code', 'Message', 'Mode', 'UserInfo', 'DebugInfo'] as $f) {
-            $msg .= sprintf('<tr><td>%s</td><td>%s</td></tr>', $f, call_user_func([$ei->getCause(), "get$f"]));
+        // DB_ERROR doesn't have a getCause but does have a __call function which tricks is_callable.
+        if (!$ei instanceof DB_Error) {
+          if ($ei->getCause() instanceof PEAR_Error) {
+            $msg .= '<table class="crm-db-error">';
+            $msg .= sprintf('<thead><tr><th>%s</th><th>%s</th></tr></thead>', ts('Error Field'), ts('Error Value'));
+            $msg .= '<tbody>';
+            foreach (['Type', 'Code', 'Message', 'Mode', 'UserInfo', 'DebugInfo'] as $f) {
+              $msg .= sprintf('<tr><td>%s</td><td>%s</td></tr>', $f, call_user_func([$ei->getCause(), "get$f"]));
+            }
+            $msg .= '</tbody></table>';
           }
-          $msg .= '</tbody></table>';
+          $ei = $ei->getCause();
         }
-        $ei = $ei->getCause();
       }
       $msg .= $e->toHtml();
     }
@@ -851,12 +838,19 @@ class CRM_Core_Error extends PEAR_ErrorStack {
 
     $ei = $e;
     while (is_callable([$ei, 'getCause'])) {
-      if ($ei->getCause() instanceof PEAR_Error) {
-        foreach (['Type', 'Code', 'Message', 'Mode', 'UserInfo', 'DebugInfo'] as $f) {
-          $msg .= sprintf(" * ERROR %s: %s\n", strtoupper($f), call_user_func([$ei->getCause(), "get$f"]));
+      // DB_ERROR doesn't have a getCause but does have a __call function which tricks is_callable.
+      if (!$ei instanceof DB_Error) {
+        if ($ei->getCause() instanceof PEAR_Error) {
+          foreach (['Type', 'Code', 'Message', 'Mode', 'UserInfo', 'DebugInfo'] as $f) {
+            $msg .= sprintf(" * ERROR %s: %s\n", strtoupper($f), call_user_func([$ei->getCause(), "get$f"]));
+          }
         }
+        $ei = $ei->getCause();
       }
-      $ei = $ei->getCause();
+      // if we have reached a DB_Error assume that is the end of the road.
+      else {
+        $ei = NULL;
+      }
     }
     $msg .= self::formatBacktrace($e->getTrace());
     return $msg;
@@ -1011,8 +1005,8 @@ class CRM_Core_Error extends PEAR_ErrorStack {
    */
   public static function deprecatedFunctionWarning($newMethod) {
     $dbt = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 2);
-    $callerFunction = isset($dbt[1]['function']) ? $dbt[1]['function'] : NULL;
-    $callerClass = isset($dbt[1]['class']) ? $dbt[1]['class'] : NULL;
+    $callerFunction = $dbt[1]['function'] ?? NULL;
+    $callerClass = $dbt[1]['class'] ?? NULL;
     Civi::log()->warning("Deprecated function $callerClass::$callerFunction, use $newMethod.", ['civi.tag' => 'deprecated']);
   }
 

@@ -1,27 +1,11 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 5                                                  |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2020                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
  */
 
@@ -35,6 +19,7 @@
 class api_v3_ContributionTest extends CiviUnitTestCase {
 
   use CRMTraits_Profile_ProfileTrait;
+  use CRMTraits_Custom_CustomDataTrait;
 
   protected $_individualId;
   protected $_contribution;
@@ -73,6 +58,8 @@ class api_v3_ContributionTest extends CiviUnitTestCase {
 
   /**
    * Setup function.
+   *
+   * @throws \CRM_Core_Exception
    */
   public function setUp() {
     parent::setUp();
@@ -113,6 +100,7 @@ class api_v3_ContributionTest extends CiviUnitTestCase {
       'min_amount' => 10,
       'max_amount' => 1000,
     ];
+    $this->entity = $this->_entity;
   }
 
   /**
@@ -140,10 +128,11 @@ class api_v3_ContributionTest extends CiviUnitTestCase {
 
   /**
    * Test Get.
+   *
+   * @throws \CRM_Core_Exception
    */
   public function testGetContribution() {
-    $contributionSettings = $this->enableTaxAndInvoicing();
-    $invoice_prefix = CRM_Contribute_BAO_Contribution::checkContributeSettings('invoice_prefix', TRUE);
+    $this->enableTaxAndInvoicing();
     $p = [
       'contact_id' => $this->_individualId,
       'receive_date' => '2010-01-20',
@@ -181,7 +170,7 @@ class api_v3_ContributionTest extends CiviUnitTestCase {
     $this->assertEquals($contribution['net_amount'], 95.00);
     $this->assertEquals($contribution['trxn_id'], 23456);
     $this->assertEquals($contribution['invoice_id'], 78910);
-    $this->assertEquals($contribution['invoice_number'], $invoice_prefix . $contributions['id']);
+    $this->assertEquals($contribution['invoice_number'], 'INV_' . $contributions['id']);
     $this->assertEquals($contribution['contribution_source'], 'SSF');
     $this->assertEquals($contribution['contribution_status'], 'Completed');
     // Create a second contribution - we are testing that 'id' gets the right contribution id (not the contact id).
@@ -225,6 +214,8 @@ class api_v3_ContributionTest extends CiviUnitTestCase {
 
   /**
    * Test that test contributions can be retrieved.
+   *
+   * @throws \CRM_Core_Exception
    */
   public function testGetTestContribution() {
     $this->callAPISuccess('Contribution', 'create', array_merge($this->_params, ['is_test' => 1]));
@@ -711,6 +702,104 @@ class api_v3_ContributionTest extends CiviUnitTestCase {
     $this->callAPISuccessGetCount('Contribution', ['total_amount' => ['>' => -5]], 2);
     $this->callAPISuccessGetCount('Contribution', ['total_amount' => ['<' => 0]], 0);
     $this->callAPISuccessGetCount('Contribution', [], 2);
+  }
+
+  /**
+   * @dataProvider createLocalizedContributionDataProvider
+   * @param $totalAmount
+   * @param $decimalPoint
+   * @param $thousandSeparator
+   * @param $currency
+   * @param $expectedResult
+   * @throws \Exception
+   */
+  public function testCreateLocalizedContribution($totalAmount, $decimalPoint, $thousandSeparator, $currency, $expectedResult) {
+    $this->setDefaultCurrency($currency);
+    $this->setMonetaryDecimalPoint($decimalPoint);
+    $this->setMonetaryThousandSeparator($thousandSeparator);
+
+    $_params = [
+      'contact_id' => $this->_individualId,
+      'receive_date' => '20120511',
+      'total_amount' => $totalAmount,
+      'financial_type_id' => $this->_financialTypeId,
+      'contribution_status_id' => 1,
+    ];
+
+    if ($expectedResult) {
+      $this->callAPISuccess('Contribution', 'create', $_params);
+    }
+    else {
+      $this->callAPIFailure('Contribution', 'create', $_params);
+    }
+  }
+
+  /**
+   * @return array
+   */
+  public function createLocalizedContributionDataProvider() {
+    return [
+      [10, '.', ',', 'USD', TRUE],
+      ['145.0E+3', '.', ',', 'USD', FALSE],
+      ['10', '.', ',', 'USD', TRUE],
+      [-10, '.', ',', 'USD', TRUE],
+      ['-10', '.', ',', 'USD', TRUE],
+      ['-10foo', '.', ',', 'USD', FALSE],
+      ['-10.0345619', '.', ',', 'USD', TRUE],
+      ['-10.010,4345619', '.', ',', 'USD', TRUE],
+      ['10.0104345619', '.', ',', 'USD', TRUE],
+      ['-0', '.', ',', 'USD', TRUE],
+      ['-.1', '.', ',', 'USD', TRUE],
+      ['.1', '.', ',', 'USD', TRUE],
+      // Test currency symbols too, default locale uses $, so if we wanted to test others we'd need to reconfigure locale
+      ['$1,234,567.89', '.', ',', 'USD', TRUE],
+      ['-$1,234,567.89', '.', ',', 'USD', TRUE],
+      ['$-1,234,567.89', '.', ',', 'USD', TRUE],
+      // This is the float format. Encapsulated in strings
+      ['1234567.89', '.', ',', 'USD', TRUE],
+      // This is the float format.
+      [1234567.89, '.', ',', 'USD', TRUE],
+      // Test EURO currency
+      ['€1,234,567.89', '.', ',', 'EUR', TRUE],
+      ['-€1,234,567.89', '.', ',', 'EUR', TRUE],
+      ['€-1,234,567.89', '.', ',', 'EUR', TRUE],
+      // This is the float format. Encapsulated in strings
+      ['1234567.89', '.', ',', 'EUR', TRUE],
+      // This is the float format.
+      [1234567.89, '.', ',', 'EUR', TRUE],
+      // Test Norwegian KR currency
+      ['kr1,234,567.89', '.', ',', 'NOK', TRUE],
+      ['kr 1,234,567.89', '.', ',', 'NOK', TRUE],
+      ['-kr1,234,567.89', '.', ',', 'NOK', TRUE],
+      ['-kr 1,234,567.89', '.', ',', 'NOK', TRUE],
+      ['kr-1,234,567.89', '.', ',', 'NOK', TRUE],
+      ['kr -1,234,567.89', '.', ',', 'NOK', TRUE],
+      // This is the float format. Encapsulated in strings
+      ['1234567.89', '.', ',', 'NOK', TRUE],
+      // This is the float format.
+      [1234567.89, '.', ',', 'NOK', TRUE],
+      // Test different localization options: , as decimal separator and dot as thousand separator
+      ['$1.234.567,89', ',', '.', 'USD', TRUE],
+      ['-$1.234.567,89', ',', '.', 'USD', TRUE],
+      ['$-1.234.567,89', ',', '.', 'USD', TRUE],
+      ['1.234.567,89', ',', '.', 'USD', TRUE],
+      // This is the float format. Encapsulated in strings
+      ['1234567.89', ',', '.', 'USD', TRUE],
+      // This is the float format.
+      [1234567.89, ',', '.', 'USD', TRUE],
+      ['$1,234,567.89', ',', '.', 'USD', FALSE],
+      ['-$1,234,567.89', ',', '.', 'USD', FALSE],
+      ['$-1,234,567.89', ',', '.', 'USD', FALSE],
+      // Now with a space as thousand separator
+      ['$1 234 567,89', ',', ' ', 'USD', TRUE],
+      ['-$1 234 567,89', ',', ' ', 'USD', TRUE],
+      ['$-1 234 567,89', ',', ' ', 'USD', TRUE],
+      ['1 234 567,89', ',', ' ', 'USD', TRUE],
+      // This is the float format. Encapsulated in strings
+      ['1234567.89', ',', ' ', 'USD', TRUE],
+      // This is the float format.
+      [1234567.89, ',', ' ', 'USD', TRUE],
+    ];
   }
 
   /**
@@ -1556,12 +1645,10 @@ class api_v3_ContributionTest extends CiviUnitTestCase {
 
   /**
    * Function tests that financial records are added when Pending Contribution is Canceled.
+   *
+   * @throws \CRM_Core_Exception
    */
   public function testCreateUpdateContributionCancelPending() {
-    // Enable & disable invoicing just to standardise the credit note id setting.
-    // Longer term we want to separate that setting from 'taxAndInvoicing'.
-    // and / or remove from core.
-    $this->enableTaxAndInvoicing();
     $contribParams = [
       'contact_id' => $this->_individualId,
       'receive_date' => '2012-01-01',
@@ -1585,8 +1672,6 @@ class api_v3_ContributionTest extends CiviUnitTestCase {
     $contribution = $this->callAPISuccess('contribution', 'create', $newParams);
     $this->_checkFinancialTrxn($contribution, 'cancelPending', NULL, $checkTrxnDate);
     $this->_checkFinancialItem($contribution['id'], 'cancelPending');
-    $this->assertEquals('CN_1', $contribution['values'][$contribution['id']]['creditnote_id']);
-    $this->disableTaxAndInvoicing();
   }
 
   /**
@@ -1768,9 +1853,9 @@ class api_v3_ContributionTest extends CiviUnitTestCase {
   }
 
   public function testDeleteParamsNotArrayContribution() {
+    $this->expectException(TypeError::class);
     $params = 'contribution_id= 1';
     $contribution = $this->callAPIFailure('contribution', 'delete', $params);
-    $this->assertEquals($contribution['error_message'], 'Input variable `params` is not an array');
   }
 
   public function testDeleteWrongParamContribution() {
@@ -2380,11 +2465,14 @@ class api_v3_ContributionTest extends CiviUnitTestCase {
    * CRM-19945 Tests that Contribute.repeattransaction DOES NOT renew a membership when contribution status=Failed
    *
    * @dataProvider contributionStatusProvider
+   *
+   * @throws \CRM_Core_Exception
    */
   public function testRepeatTransactionMembershipRenewContributionNotCompleted($contributionStatus) {
     // Completed status should renew so we don't test that here
-    // In Progress status is only for recurring contributions so we don't test that here
-    if (in_array($contributionStatus['name'], ['Completed', 'In Progress'])) {
+    // In Progress status was never actually intended to be available for contributions.
+    // Partially paid is not valid.
+    if (in_array($contributionStatus['name'], ['Completed', 'In Progress', 'Partially paid'])) {
       return;
     }
     list($originalContribution, $membership) = $this->setUpAutoRenewMembership();
@@ -4404,6 +4492,32 @@ class api_v3_ContributionTest extends CiviUnitTestCase {
     ]);
     $this->assertEquals('$', $result['values']['USD']);
     $this->assertNotContains('US Dollar', $result['values']);
+  }
+
+  public function testSetCustomDataInCreateAndHook() {
+    $this->createCustomGroupWithFieldsOfAllTypes();
+    $this->hookClass->setHook('civicrm_post', [
+      $this,
+      'civicrmPostContributionCustom',
+    ]);
+    $params = $this->_params;
+    $params['custom_' . $this->ids['CustomField']['text']] = 'Some Text';
+    $contribution = $this->callAPISuccess('Contribution', 'create', $params);
+    $getContribution = $this->callAPISuccess('Contribution', 'get', [
+      'id' => $contribution['id'],
+      'return' => ['id', 'custom_' . $this->ids['CustomField']['text'], 'custom_' . $this->ids['CustomField']['int']],
+    ]);
+    $this->assertEquals(5, $getContribution['values'][$contribution['id']]['custom_' . $this->ids['CustomField']['int']]);
+    $this->assertEquals('Some Text', $getContribution['values'][$contribution['id']]['custom_' . $this->ids['CustomField']['text']]);
+  }
+
+  public function civicrmPostContributionCustom($op, $objectName, $objectId, &$objectRef) {
+    if ($objectName === 'Contribution' && $op === 'create') {
+      $this->callAPISuccess('Contribution', 'create', [
+        'id' => $objectId,
+        'custom_' . $this->ids['CustomField']['int'] => 5,
+      ]);
+    }
   }
 
 }

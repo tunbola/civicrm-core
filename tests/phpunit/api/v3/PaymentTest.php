@@ -1,27 +1,11 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 5                                                  |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2020                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
  */
 
@@ -501,6 +485,45 @@ class api_v3_PaymentTest extends CiviUnitTestCase {
   }
 
   /**
+   * Test negative payment using create API.
+   *
+   * @throws \CRM_Core_Exception
+   */
+  public function testRefundPayment() {
+    $result = $this->callAPISuccess('Contribution', 'create', [
+      'financial_type_id' => "Donation",
+      'total_amount' => 100,
+      'contact_id' => $this->_individualId,
+    ]);
+    $contributionID = $result['id'];
+
+    //Refund a part of the main amount.
+    $this->callAPISuccess('Payment', 'create', [
+      'contribution_id' => $contributionID,
+      'total_amount' => -10,
+    ]);
+
+    $contribution = $this->callAPISuccessGetSingle('Contribution', [
+      'return' => ["contribution_status_id"],
+      'id' => $contributionID,
+    ]);
+    //Still we've a status of Completed after refunding a partial amount.
+    $this->assertEquals($contribution['contribution_status'], 'Completed');
+
+    //Refund the complete amount.
+    $this->callAPISuccess('Payment', 'create', [
+      'contribution_id' => $contributionID,
+      'total_amount' => -90,
+    ]);
+    $contribution = $this->callAPISuccessGetSingle('Contribution', [
+      'return' => ["contribution_status_id"],
+      'id' => $contributionID,
+    ]);
+    //Assert if main contribution status is updated to "Refunded".
+    $this->assertEquals($contribution['contribution_status'], 'Refunded Label**');
+  }
+
+  /**
    * Test cancel payment api
    *
    * @throws \CRM_Core_Exception
@@ -704,6 +727,21 @@ class api_v3_PaymentTest extends CiviUnitTestCase {
   }
 
   /**
+   * Test that a contribution can be overpaid with the payment api.
+   *
+   * @throws \CRM_Core_Exception
+   */
+  public function testCreatePaymentOverPay() {
+    $contributionID = $this->contributionCreate(['contact_id' => $this->individualCreate()]);
+    $payment = $this->callAPISuccess('Payment', 'create', ['total_amount' => 5, 'order_id' => $contributionID]);
+    $contribution = $this->callAPISuccessGetSingle('Contribution', ['id' => $contributionID]);
+    $this->assertEquals('Completed', $contribution['contribution_status']);
+    $this->callAPISuccessGetCount('EntityFinancialTrxn', ['financial_trxn_id' => $payment['id'], 'entity_table' => 'civicrm_financial_item'], 0);
+    $this->validateAllPayments();
+    $this->validateAllContributions();
+  }
+
+  /**
    * Test create payment api for paylater contribution
    *
    * @throws \CRM_Core_Exception
@@ -768,6 +806,17 @@ class api_v3_PaymentTest extends CiviUnitTestCase {
       'id' => $contribution['id'],
     ]);
     $this->validateAllPayments();
+  }
+
+  /**
+   * Test net amount is set when fee amount is passed in.
+   *
+   * @throws \CRM_Core_Exception
+   */
+  public function testNetAmount() {
+    $order = $this->createPendingParticipantOrder();
+    $payment = $this->callAPISuccess('Payment', 'create', ['order_id' => $order['id'], 'total_amount' => 10, 'fee_amount' => .25]);
+    $this->assertEquals('9.75', $this->callAPISuccessGetValue('Payment', ['id' => $payment['id'], 'return' => 'net_amount']));
   }
 
   /**

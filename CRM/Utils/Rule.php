@@ -1,34 +1,18 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 5                                                  |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2020                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
  */
 
 /**
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2020
+ * @copyright CiviCRM LLC https://civicrm.org/licensing
  */
 
 require_once 'HTML/QuickForm/Rule/Email.php';
@@ -324,9 +308,9 @@ class CRM_Utils_Rule {
   public static function currentDate($date, $monthRequired = TRUE) {
     $config = CRM_Core_Config::singleton();
 
-    $d = CRM_Utils_Array::value('d', $date);
-    $m = CRM_Utils_Array::value('M', $date);
-    $y = CRM_Utils_Array::value('Y', $date);
+    $d = $date['d'] ?? NULL;
+    $m = $date['M'] ?? NULL;
+    $y = $date['Y'] ?? NULL;
 
     if (!$d && !$m && !$y) {
       return TRUE;
@@ -334,7 +318,7 @@ class CRM_Utils_Rule {
 
     // CRM-9017 CiviContribute/CiviMember form with expiration date format 'm Y'
     if (!$m && !empty($date['m'])) {
-      $m = CRM_Utils_Array::value('m', $date);
+      $m = $date['m'] ?? NULL;
     }
 
     $day = $mon = 1;
@@ -612,19 +596,6 @@ class CRM_Utils_Rule {
    * @return bool
    */
   public static function money($value) {
-    $config = CRM_Core_Config::singleton();
-
-    // only edge case when we have a decimal point in the input money
-    // field and not defined in the decimal Point in config settings
-    if ($config->monetaryDecimalPoint &&
-      $config->monetaryDecimalPoint != '.' &&
-      // CRM-7122 also check for Thousands Separator in config settings
-      $config->monetaryThousandSeparator != '.' &&
-      substr_count($value, '.')
-    ) {
-      return FALSE;
-    }
-
     $value = self::cleanMoney($value);
 
     if (self::integer($value)) {
@@ -918,13 +889,13 @@ class CRM_Utils_Rule {
   public static function qfDate($date) {
     $config = CRM_Core_Config::singleton();
 
-    $d = CRM_Utils_Array::value('d', $date);
-    $m = CRM_Utils_Array::value('M', $date);
-    $y = CRM_Utils_Array::value('Y', $date);
+    $d = $date['d'] ?? NULL;
+    $m = $date['M'] ?? NULL;
+    $y = $date['Y'] ?? NULL;
     if (isset($date['h']) ||
       isset($date['g'])
     ) {
-      $m = CRM_Utils_Array::value('M', $date);
+      $m = $date['M'] ?? NULL;
     }
 
     if (!$d && !$m && !$y) {

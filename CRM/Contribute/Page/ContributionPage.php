@@ -1,34 +1,18 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 5                                                  |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2020                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
  */
 
 /**
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2020
+ * @copyright CiviCRM LLC https://civicrm.org/licensing
  */
 
 /**
@@ -240,7 +224,7 @@ class CRM_Contribute_Page_ContributionPage extends CRM_Core_Page {
       $yearNow = $yearDate + 10000;
 
       $urlString = 'civicrm/contribute/search';
-      $urlParams = 'reset=1&pid=%%id%%&force=1&test=0';
+      $urlParams = 'reset=1&contribution_page_id=%%id%%&force=1&test=0';
 
       self::$_contributionLinks = array(
         CRM_Core_Action::DETACH => array(
@@ -546,7 +530,7 @@ ORDER BY is_active desc, title asc
       );
 
       //show campaigns on selector.
-      $contribution[$dao->id]['campaign'] = CRM_Utils_Array::value($dao->campaign_id, $allCampaigns);
+      $contribution[$dao->id]['campaign'] = $allCampaigns[$dao->campaign_id] ?? NULL;
     }
 
     if (isset($contribution)) {
@@ -705,7 +689,7 @@ ORDER BY UPPER(LEFT(title, 1))
     // build the formatted configure links.
     $formattedConfLinks = self::configureActionLinks();
     foreach ($formattedConfLinks as $act => & $link) {
-      $sectionName = CRM_Utils_Array::value('uniqueName', $link);
+      $sectionName = $link['uniqueName'] ?? NULL;
       if (!$sectionName) {
         continue;
       }

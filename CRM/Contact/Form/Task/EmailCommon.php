@@ -1,34 +1,18 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 5                                                  |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2020                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
  */
 
 /**
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2020
+ * @copyright CiviCRM LLC https://civicrm.org/licensing
  */
 
 /**
@@ -320,7 +304,7 @@ class CRM_Contact_Form_Task_EmailCommon {
 
     foreach ($fields as $field => $values) {
       if (!empty($fields[$field])) {
-        $attribute = CRM_Utils_Array::value('attributes', $values);
+        $attribute = $values['attributes'] ?? NULL;
         $required = !empty($values['required']);
 
         if ($values['type'] == 'select' && empty($attribute)) {
@@ -396,7 +380,7 @@ class CRM_Contact_Form_Task_EmailCommon {
   public static function submit(&$form, $formValues) {
     self::saveMessageTemplate($formValues);
 
-    $from = CRM_Utils_Array::value('from_email_address', $formValues);
+    $from = $formValues['from_email_address'] ?? NULL;
     // dev/core#357 User Emails are keyed by their id so that the Signature is able to be added
     // If we have had a contact email used here the value returned from the line above will be the
     // numerical key where as $from for use in the sendEmail in Activity needs to be of format of "To Name" <toemailaddress>
@@ -492,7 +476,8 @@ class CRM_Contact_Form_Task_EmailCommon {
       array_keys($form->_toContactDetails),
       $additionalDetails,
       $contributionIds,
-      CRM_Utils_Array::value('campaign_id', $formValues)
+      CRM_Utils_Array::value('campaign_id', $formValues),
+      $form->getVar('_caseId')
     );
 
     $followupStatus = '';

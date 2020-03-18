@@ -1,34 +1,18 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 5                                                  |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2020                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
  */
 
 /**
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2020
+ * @copyright CiviCRM LLC https://civicrm.org/licensing
  */
 class CRM_Campaign_BAO_Campaign extends CRM_Campaign_DAO_Campaign {
 
@@ -399,6 +383,7 @@ INNER JOIN civicrm_option_group grp ON ( campaign_type.option_group_id = grp.id 
       if ($orderOnCampaignTable) {
         $orderByClause = "ORDER BY campaign.{$sortParams['sort']} {$sortParams['sortOrder']}";
       }
+      $orderByClause = ($orderByClause) ? $orderByClause . ", campaign.id {$sortParams['sortOrder']}" : $orderByClause;
       $limitClause = "LIMIT {$sortParams['offset']}, {$sortParams['rowCount']}";
     }
 
@@ -592,7 +577,7 @@ INNER JOIN  civicrm_group grp ON ( grp.id = campgrp.entity_id )
     $campaignDetails = self::getPermissionedCampaigns($connectedCampaignId, NULL, TRUE, TRUE, $appendDates);
     $fields = ['campaigns', 'hasAccessCampaign', 'isCampaignEnabled'];
     foreach ($fields as $fld) {
-      $$fld = CRM_Utils_Array::value($fld, $campaignDetails);
+      $$fld = $campaignDetails[$fld] ?? NULL;
     }
 
     $showAddCampaign = FALSE;
@@ -633,7 +618,7 @@ INNER JOIN  civicrm_group grp ON ( grp.id = campgrp.entity_id )
     $campaignDetails = self::getPermissionedCampaigns(NULL, NULL, FALSE, FALSE, FALSE, TRUE);
     $fields = ['campaigns', 'hasAccessCampaign', 'isCampaignEnabled'];
     foreach ($fields as $fld) {
-      $$fld = CRM_Utils_Array::value($fld, $campaignDetails);
+      $$fld = $campaignDetails[$fld] ?? NULL;
     }
     $showCampaignInSearch = FALSE;
     if ($isCampaignEnabled && $hasAccessCampaign && !empty($campaigns)) {

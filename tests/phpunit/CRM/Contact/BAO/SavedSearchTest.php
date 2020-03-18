@@ -1,28 +1,12 @@
 <?php
 /*
-  +--------------------------------------------------------------------+
-  | CiviCRM version 5                                                  |
-  +--------------------------------------------------------------------+
-  | Copyright CiviCRM LLC (c) 2004-2020                                |
-  +--------------------------------------------------------------------+
-  | This file is a part of CiviCRM.                                    |
-  |                                                                    |
-  | CiviCRM is free software; you can copy, modify, and distribute it  |
-  | under the terms of the GNU Affero General Public License           |
-  | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
-  |                                                                    |
-  | CiviCRM is distributed in the hope that it will be useful, but     |
-  | WITHOUT ANY WARRANTY; without even the implied warranty of         |
-  | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
-  | See the GNU Affero General Public License for more details.        |
-  |                                                                    |
-  | You should have received a copy of the GNU Affero General Public   |
-  | License and the CiviCRM Licensing Exception along                  |
-  | with this program; if not, contact CiviCRM LLC                     |
-  | at info[AT]civicrm[DOT]org. If you have questions about the        |
-  | GNU Affero General Public License or the licensing of CiviCRM,     |
-  | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
-  +--------------------------------------------------------------------+
+ +--------------------------------------------------------------------+
+ | Copyright CiviCRM LLC. All rights reserved.                        |
+ |                                                                    |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
+ +--------------------------------------------------------------------+
  */
 
 /**
@@ -32,6 +16,8 @@
  * @group headless
  */
 class CRM_Contact_BAO_SavedSearchTest extends CiviUnitTestCase {
+
+  use CRMTraits_Custom_CustomDataTrait;
 
   /**
    * Sets up the fixture, for example, opens a network connection.
@@ -48,37 +34,85 @@ class CRM_Contact_BAO_SavedSearchTest extends CiviUnitTestCase {
    * This method is called after a test is executed.
    */
   protected function tearDown() {
+    if (!empty($this->ids['CustomField'])) {
+      foreach ($this->ids['CustomField'] as $type => $id) {
+        $field = civicrm_api3('CustomField', 'getsingle', ['id' => $id]);
+        $group = civicrm_api3('CustomGroup', 'getsingle', ['id' => $field['custom_group_id']]);
+        CRM_Core_DAO::executeQuery("DROP TABLE IF Exists {$group['table_name']}");
+      }
+    }
     $this->quickCleanup([
       'civicrm_mapping_field',
       'civicrm_mapping',
       'civicrm_group',
       'civicrm_saved_search',
+      'civicrm_custom_field',
+      'civicrm_custom_group',
     ]);
   }
 
   /**
    * Test setDefaults for privacy radio buttons.
+   *
+   * @throws \Exception
    */
   public function testDefaultValues() {
+    $this->createCustomGroupWithFieldOfType([], 'int');
     $sg = new CRM_Contact_Form_Search_Advanced();
     $sg->controller = new CRM_Core_Controller();
-    $sg->_formValues = [
+    $formValues = [
       'group_search_selected' => 'group',
       'privacy_options' => ['do_not_email'],
       'privacy_operator' => 'OR',
       'privacy_toggle' => 2,
       'operator' => 'AND',
       'component_mode' => 1,
+      'custom_' . $this->ids['CustomField']['int'] . '_from' => 0,
+      'custom_' . $this->ids['CustomField']['int'] . '_to' => '',
     ];
     CRM_Core_DAO::executeQuery(
-      "INSERT INTO civicrm_saved_search (form_values) VALUES('" . serialize($sg->_formValues) . "')"
+      "INSERT INTO civicrm_saved_search (form_values) VALUES('" . serialize($formValues) . "')"
     );
     $ssID = CRM_Core_DAO::singleValueQuery('SELECT LAST_INSERT_ID()');
     $sg->set('ssID', $ssID);
+    $sg->set('formValues', $formValues);
 
     $defaults = $sg->setDefaultValues();
 
-    $this->checkArrayEquals($defaults, $sg->_formValues);
+    $this->checkArrayEquals($defaults, $formValues);
+    $this->callAPISuccess('CustomField', 'delete', ['id' => $this->ids['CustomField']['int']]);
+    unset($this->ids['CustomField']['int']);
+    $defaults = $sg->setDefaultValues();
+    $this->checkArrayEquals($defaults, $formValues);
+  }
+
+  /**
+   * Test setDefaults for privacy radio buttons.
+   *
+   * @throws \Exception
+   */
+  public function testGetFormValuesWithCustomFields() {
+    $this->createCustomGroupWithFieldsOfAllTypes();
+    $sg = new CRM_Contact_Form_Search_Advanced();
+    $sg->controller = new CRM_Core_Controller();
+    $formValues = [
+      'group_search_selected' => 'group',
+      'privacy_options' => ['do_not_email'],
+      'privacy_operator' => 'OR',
+      'privacy_toggle' => 2,
+      'operator' => 'AND',
+      'component_mode' => 1,
+      'custom_' . $this->ids['CustomField']['int'] . '_from' => 0,
+      'custom_' . $this->ids['CustomField']['int'] . '_to' => '',
+      'custom_' . $this->ids['CustomField']['select_date'] . '_high' => '2019-06-30',
+      'custom_' . $this->ids['CustomField']['select_date'] . '_low' => '2019-06-30',
+    ];
+    CRM_Core_DAO::executeQuery(
+      "INSERT INTO civicrm_saved_search (form_values) VALUES('" . serialize($formValues) . "')"
+    );
+    $returnedFormValues = CRM_Contact_BAO_SavedSearch::getFormValues(CRM_Core_DAO::singleValueQuery('SELECT LAST_INSERT_ID()'));
+    $checkFormValues = $formValues + ['custom_' . $this->ids['CustomField']['select_date'] . '_relative' => 0];
+    $this->checkArrayEquals($returnedFormValues, $checkFormValues);
   }
 
   /**

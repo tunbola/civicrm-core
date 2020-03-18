@@ -1,34 +1,18 @@
 <?php
 /*
-  +--------------------------------------------------------------------+
-  | CiviCRM version 5                                                  |
-  +--------------------------------------------------------------------+
-  | Copyright CiviCRM LLC (c) 2004-2020                                |
-  +--------------------------------------------------------------------+
-  | This file is a part of CiviCRM.                                    |
-  |                                                                    |
-  | CiviCRM is free software; you can copy, modify, and distribute it  |
-  | under the terms of the GNU Affero General Public License           |
-  | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
-  |                                                                    |
-  | CiviCRM is distributed in the hope that it will be useful, but     |
-  | WITHOUT ANY WARRANTY; without even the implied warranty of         |
-  | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
-  | See the GNU Affero General Public License for more details.        |
-  |                                                                    |
-  | You should have received a copy of the GNU Affero General Public   |
-  | License and the CiviCRM Licensing Exception along                  |
-  | with this program; if not, contact CiviCRM LLC                     |
-  | at info[AT]civicrm[DOT]org. If you have questions about the        |
-  | GNU Affero General Public License or the licensing of CiviCRM,     |
-  | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
-  +--------------------------------------------------------------------+
+ +--------------------------------------------------------------------+
+ | Copyright CiviCRM LLC. All rights reserved.                        |
+ |                                                                    |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
+ +--------------------------------------------------------------------+
  */
 
 /**
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2020
+ * @copyright CiviCRM LLC https://civicrm.org/licensing
  */
 class CRM_Report_Form_Member_ContributionDetail extends CRM_Report_Form {
 
@@ -422,15 +406,15 @@ class CRM_Report_Form_Member_ContributionDetail extends CRM_Report_Form {
             elseif ($fieldName == 'first_donation_date' ||
               $fieldName == 'first_donation_amount'
             ) {
-              $baseField = CRM_Utils_Array::value('base_field', $field);
+              $baseField = $field['base_field'] ?? NULL;
               $select[] = "{$this->_aliases['civicrm_contribution']}.{$baseField} as {$tableName}_{$fieldName}";
-              $this->_columnHeaders["{$tableName}_{$fieldName}"]['title'] = CRM_Utils_Array::value('title', $field);
-              $this->_columnHeaders["{$tableName}_{$fieldName}"]['type'] = CRM_Utils_Array::value('type', $field);
+              $this->_columnHeaders["{$tableName}_{$fieldName}"]['title'] = $field['title'] ?? NULL;
+              $this->_columnHeaders["{$tableName}_{$fieldName}"]['type'] = $field['type'] ?? NULL;
             }
             else {
               $select[] = "{$field['dbAlias']} as {$tableName}_{$fieldName}";
-              $this->_columnHeaders["{$tableName}_{$fieldName}"]['title'] = CRM_Utils_Array::value('title', $field);
-              $this->_columnHeaders["{$tableName}_{$fieldName}"]['type'] = CRM_Utils_Array::value('type', $field);
+              $this->_columnHeaders["{$tableName}_{$fieldName}"]['title'] = $field['title'] ?? NULL;
+              $this->_columnHeaders["{$tableName}_{$fieldName}"]['type'] = $field['type'] ?? NULL;
             }
           }
         }
@@ -656,8 +640,8 @@ class CRM_Report_Form_Member_ContributionDetail extends CRM_Report_Form {
         if (array_key_exists('fields', $table)) {
           foreach ($table['fields'] as $fieldName => $field) {
             if (!empty($field['csv_display']) && !empty($field['no_display'])) {
-              $this->_columnHeaders["{$tableName}_{$fieldName}"]['title'] = CRM_Utils_Array::value('title', $field);
-              $this->_columnHeaders["{$tableName}_{$fieldName}"]['type'] = CRM_Utils_Array::value('type', $field);
+              $this->_columnHeaders["{$tableName}_{$fieldName}"]['title'] = $field['title'] ?? NULL;
+              $this->_columnHeaders["{$tableName}_{$fieldName}"]['type'] = $field['type'] ?? NULL;
             }
           }
         }
@@ -673,8 +657,8 @@ class CRM_Report_Form_Member_ContributionDetail extends CRM_Report_Form {
           if ($contactId = $row['civicrm_contact_id']) {
             if ($rowNum == 0) {
               $pcid = $contactId;
-              $fAmt = $row['first_donation_first_donation_amount'];
-              $fDate = $row['first_donation_first_donation_date'];
+              $fAmt = $row['first_donation_first_donation_amount'] ?? '';
+              $fDate = $row['first_donation_first_donation_date'] ?? '';
             }
             else {
               if ($pcid == $contactId) {
@@ -683,8 +667,8 @@ class CRM_Report_Form_Member_ContributionDetail extends CRM_Report_Form {
                 $pcid = $contactId;
               }
               else {
-                $fAmt = $row['first_donation_first_donation_amount'];
-                $fDate = $row['first_donation_first_donation_date'];
+                $fAmt = $row['first_donation_first_donation_amount'] ?? '';
+                $fDate = $row['first_donation_first_donation_date'] ?? '';
                 $pcid = $contactId;
               }
             }
@@ -732,7 +716,7 @@ class CRM_Report_Form_Member_ContributionDetail extends CRM_Report_Form {
       }
 
       if (!empty($row['civicrm_batch_batch_id'])) {
-        $rows[$rowNum]['civicrm_batch_batch_id'] = CRM_Utils_Array::value($row['civicrm_batch_batch_id'], $batches);
+        $rows[$rowNum]['civicrm_batch_batch_id'] = $batches[$row['civicrm_batch_batch_id']] ?? NULL;
         $entryFound = TRUE;
       }
 

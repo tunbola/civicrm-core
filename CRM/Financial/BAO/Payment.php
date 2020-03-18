@@ -1,34 +1,18 @@
 <?php
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 5                                                  |
- +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2020                                |
- +--------------------------------------------------------------------+
- | This file is a part of CiviCRM.                                    |
+ | Copyright CiviCRM LLC. All rights reserved.                        |
  |                                                                    |
- | CiviCRM is free software; you can copy, modify, and distribute it  |
- | under the terms of the GNU Affero General Public License           |
- | Version 3, 19 November 2007 and the CiviCRM Licensing Exception.   |
- |                                                                    |
- | CiviCRM is distributed in the hope that it will be useful, but     |
- | WITHOUT ANY WARRANTY; without even the implied warranty of         |
- | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.               |
- | See the GNU Affero General Public License for more details.        |
- |                                                                    |
- | You should have received a copy of the GNU Affero General Public   |
- | License and the CiviCRM Licensing Exception along                  |
- | with this program; if not, contact CiviCRM LLC                     |
- | at info[AT]civicrm[DOT]org. If you have questions about the        |
- | GNU Affero General Public License or the licensing of CiviCRM,     |
- | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
+ | This work is published under the GNU AGPLv3 license with some      |
+ | permitted exceptions and without any warranty. For full license    |
+ | and copyright information, see https://civicrm.org/licensing       |
  +--------------------------------------------------------------------+
  */
 
 /**
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2020
+ * @copyright CiviCRM LLC https://civicrm.org/licensing
  */
 
 /**
@@ -54,13 +38,15 @@ class CRM_Financial_BAO_Payment {
    */
   public static function create($params) {
     $contribution = civicrm_api3('Contribution', 'getsingle', ['id' => $params['contribution_id']]);
-    $contributionStatus = CRM_Contribute_PseudoConstant::contributionStatus($contribution['contribution_status_id'], 'name');
-    $isPaymentCompletesContribution = self::isPaymentCompletesContribution($params['contribution_id'], $params['total_amount']);
+    $contributionStatus = CRM_Core_PseudoConstant::getName('CRM_Contribute_BAO_Contribution', 'contribution_status_id', $contribution['contribution_status_id']);
+    $isPaymentCompletesContribution = self::isPaymentCompletesContribution($params['contribution_id'], $params['total_amount'], $contributionStatus);
     $lineItems = self::getPayableLineItems($params);
 
     $whiteList = ['check_number', 'payment_processor_id', 'fee_amount', 'total_amount', 'contribution_id', 'net_amount', 'card_type_id', 'pan_truncation', 'trxn_result_code', 'payment_instrument_id', 'trxn_id', 'trxn_date'];
     $paymentTrxnParams = array_intersect_key($params, array_fill_keys($whiteList, 1));
     $paymentTrxnParams['is_payment'] = 1;
+    // Really we should have a DB default.
+    $paymentTrxnParams['fee_amount'] = $paymentTrxnParams['fee_amount'] ?? 0;
 
     if (isset($paymentTrxnParams['payment_processor_id']) && empty($paymentTrxnParams['payment_processor_id'])) {
       // Don't pass 0 - ie the Pay Later processor as it is  a pseudo-processor.
@@ -164,6 +150,18 @@ class CRM_Financial_BAO_Payment {
     }
     elseif ($contributionStatus === 'Pending' && $params['total_amount'] > 0) {
       self::updateContributionStatus($contribution['id'], 'Partially Paid');
+      $participantPayments = civicrm_api3('ParticipantPayment', 'get', [
+        'contribution_id' => $contribution['id'],
+        'participant_id.status_id' => ['IN' => ['Pending from pay later', 'Pending from incomplete transaction']],
+      ])['values'];
+      foreach ($participantPayments as $participantPayment) {
+        civicrm_api3('Participant', 'create', ['id' => $participantPayment['participant_id'], 'status_id' => 'Partially paid']);
+      }
+    }
+    elseif ($contributionStatus === 'Completed' && ((float) CRM_Core_BAO_FinancialTrxn::getTotalPayments($contribution['id'], TRUE) === 0.0)) {
+      // If the contribution has previously been completed (fully paid) and now has total payments adding up to 0
+      //  change status to refunded.
+      self::updateContributionStatus($contribution['id'], 'Refunded');
     }
     CRM_Contribute_BAO_Contribution::recordPaymentActivity($params['contribution_id'], CRM_Utils_Array::value('participant_id', $params), $params['total_amount'], $trxn->currency, $trxn->trxn_date);
     return $trxn;
@@ -305,12 +303,12 @@ class CRM_Financial_BAO_Payment {
       'amountOwed' => $entities['payment']['balance'],
       'totalPaid' => $entities['payment']['paid'],
       'paymentAmount' => $entities['payment']['total_amount'],
-      'checkNumber' => CRM_Utils_Array::value('check_number', $entities['payment']),
+      'checkNumber' => $entities['payment']['check_number'] ?? NULL,
       'receive_date' => $entities['payment']['trxn_date'],
       'paidBy' => CRM_Core_PseudoConstant::getLabel('CRM_Core_BAO_FinancialTrxn', 'payment_instrument_id', $entities['payment']['payment_instrument_id']),
       'isShowLocation' => (!empty($entities['event']) ? $entities['event']['is_show_location'] : FALSE),
-      'location' => CRM_Utils_Array::value('location', $entities),
-      'event' => CRM_Utils_Array::value('event', $entities),
+      'location' => $entities['location'] ?? NULL,
+      'event' => $entities['event'] ?? NULL,
       'component' => (!empty($entities['event']) ? 'event' : 'contribution'),
       'isRefund' => $entities['payment']['total_amount'] < 0,
       'isAmountzero' => $entities['payment']['total_amount'] === 0,
@@ -374,14 +372,18 @@ class CRM_Financial_BAO_Payment {
   }
 
   /**
-   * Does this payment complete the contribution
+   * Does this payment complete the contribution.
    *
    * @param int $contributionID
    * @param float $paymentAmount
+   * @param string $previousStatus
    *
    * @return bool
    */
-  protected static function isPaymentCompletesContribution($contributionID, $paymentAmount) {
+  protected static function isPaymentCompletesContribution($contributionID, $paymentAmount, $previousStatus) {
+    if ($previousStatus === 'Completed') {
+      return FALSE;
+    }
     $outstandingBalance = CRM_Contribute_BAO_Contribution::getContributionBalance($contributionID);
     $cmp = bccomp($paymentAmount, $outstandingBalance, 5);
     return ($cmp == 0 || $cmp == 1);
@@ -448,7 +450,7 @@ class CRM_Financial_BAO_Payment {
       $lineItems[$lineItemID]['balance'] = $lineItem['subTotal'] - $lineItems[$lineItemID]['paid'];
 
       if (!empty($lineItemOverrides)) {
-        $lineItems[$lineItemID]['allocation'] = CRM_Utils_Array::value($lineItemID, $lineItemOverrides);
+        $lineItems[$lineItemID]['allocation'] = $lineItemOverrides[$lineItemID] ?? NULL;
       }
       else {
         $lineItems[$lineItemID]['allocation'] = $lineItems[$lineItemID]['balance'] * $ratio;
